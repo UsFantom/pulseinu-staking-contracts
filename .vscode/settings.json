@@ -1,0 +1,17 @@
+{
+  "search.exclude": {
+    "**/.yarn": true,
+    "**/.pnp.*": true
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "eslint.nodePath": ".yarn/sdks",
+  "javascript.suggestionActions.enabled": false,
+  "prettier.prettierPath": ".yarn/sdks/prettier/index.js",
+  "typescript.tsdk": ".yarn/sdks/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "[solidity]": {
+    "editor.defaultFormatter": "JuanBlanco.solidity"
+  },
+  "solidity.defaultCompiler": "localNodeModule",
+  "solidity.remappingsUnix": ["@uniswap/=node_modules/@uniswap/", "@openzeppelin/=node_modules/@openzeppelin/"]
+}

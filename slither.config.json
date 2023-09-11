@@ -1,0 +1,11 @@
+{
+  "detectors_to_exclude": "unused-return,uninitialized-local",
+  "exclude_informational": true,
+  "exclude_low": true,
+  "exclude_medium": false,
+  "exclude_high": false,
+  "json": "",
+  "disable_color": false,
+  "filter_paths": "(openzeppelin/|partaken/|chainlink/)",
+  "legacy_ast": false
+}
