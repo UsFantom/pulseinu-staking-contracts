@@ -63,17 +63,24 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     // BoostNft tokenId => user address
     mapping(uint256 => address) public boostNftToUser;
 
-    constructor(address _pinuToken, address _boostNft, uint256 _stakingFee, uint256 _startsAt, uint256 _shareRate) {
+    mapping(address => address[]) public referrals;
+    mapping(address => StakingInfo[]) public stakingInfos;
+
+    constructor(address _pinuToken, address _boostNft, uint256 _stakingFee, uint256 _shareRate) {
         pinuToken = IERC20(_pinuToken);
         boostNft = _boostNft;
         stakingFee = _stakingFee;
-        startsAt = _startsAt;
+        startsAt = block.timestamp;
         currentShareRate = _shareRate;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /* ========== VIEWS ========== */
+
+    function getCurrentDay() public view returns (uint256) {
+        return (block.timestamp - startsAt) / 1 days;
+    }
 
     function calcShares(uint256 _stakedAmount, uint256 _stakingDays) public view returns (uint256) {
         uint256 _shares = ((_stakedAmount + _bonus(_stakedAmount, _stakingDays)) / currentShareRate) * SHARE_RATE_BASIS;
@@ -95,6 +102,25 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return rewardsSinceLastUpdate + rewards[_user];
     }
 
+    function getLengthBonus(uint256 _amount, uint256 _days) external pure returns (uint256) {
+        return _bonus(_amount, _days);
+    }
+
+    function getNftBonus(uint256 _amount) external view returns (uint256) {
+        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(msg.sender);
+        if (nftBalance > 0) {
+            uint256 boostPercent = 0;
+            for (uint256 i = 0; i < nftBalance; i++) {
+                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(msg.sender, i);
+                if (boostNftToUser[tokenId] == address(0)) {
+                    boostPercent += _getBoostPercent(tokenId);
+                }
+            }
+            return (_amount * boostPercent) / PERCENT_BASIS;
+        }
+        return 0;
+    }
+
     function _bonus(uint256 _amount, uint256 _days) private pure returns (uint256) {
         return (_amount * (_days - 1)) / 1850;
     }
@@ -108,6 +134,10 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    function _burnPls(uint256 amount) private {
+        // pinuToken.safeTransferFrom(msg.sender, BURN_ADDRESS, amount);
+    }
+
     function stake(
         uint256 _amount,
         uint256 _stakeDays,
@@ -116,22 +146,21 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         require(userStakingInfo[msg.sender].balance == 0, "StakingPool::stakeMore: active stake exists, unstake first");
         require(_amount > 0, "StakingPool::stake: amount = 0");
         require(_stakeDays > 0, "StakingPool::stake: _stakeDays = 0");
-        uint256 _minimumStakeTimestamp = block.timestamp + _stakeDays * 1 days;
-        require(_minimumStakeTimestamp > startsAt, "StakingPool::stake: _minimumStakeTimestamp <= startsAt");
         require(msg.value == stakingFee, "StakingPool::stake: incorrect fee amount");
 
         // burn fee
-        uint256 _burnFee = stakingFee * STAKING_BURN_PERCENT / PERCENT_BASIS;
+        uint256 _burnFee = (stakingFee * STAKING_BURN_PERCENT) / PERCENT_BASIS;
         if (_referrer != address(0)) {
-            uint256 _referrerFee = stakingFee * STAKING_REFERRER_PERCENT / PERCENT_BASIS;
+            uint256 _referrerFee = (stakingFee * STAKING_REFERRER_PERCENT) / PERCENT_BASIS;
             _safeTranferFunds(_referrer, _referrerFee);
             _burnFee -= _referrerFee;
+            referrals[_referrer].push(msg.sender);
         }
         _burnPls(_burnFee);
-        
+
         userStakingInfo[msg.sender].balance = _amount;
         userStakingInfo[msg.sender].shares = calcShares(_amount, _stakeDays);
-        userStakingInfo[msg.sender].minimumStakeTimestamp = uint80(_minimumStakeTimestamp);
+        userStakingInfo[msg.sender].startDay = uint16(getCurrentDay());
         userStakingInfo[msg.sender].stakeDays = uint16(_stakeDays);
 
         pinuToken.safeTransferFrom(msg.sender, address(this), _amount);
@@ -161,7 +190,10 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     function unstake() external nonReentrant updateReward(msg.sender) {
         address _user = msg.sender;
-        require(block.timestamp >= userStakingInfo[_user].minimumStakeTimestamp, "StakingPool::unstake: too early");
+        require(
+            getCurrentDay() > userStakingInfo[_user].startDay + userStakingInfo[_user].stakeDays,
+            "StakingPool::unstake: stake not matured"
+        );
         uint256 userBalance = userStakingInfo[_user].balance;
         require(userBalance > 0, "StakingPool::unstake: no active stake");
 
@@ -197,6 +229,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         totalShares -= userStakingInfo[_user].shares;
         totalStaked -= userBalance;
 
+        stakingInfos[_user].push(userStakingInfo[_user]);
         delete userStakingInfo[_user];
 
         pinuToken.safeTransfer(_user, userBalance);

@@ -1,15 +1,19 @@
 import { BigNumber, ethers } from "ethers";
 import { DeployFunction } from "hardhat-deploy/dist/types";
-import { BoostNft__factory } from "../src/types";
+import { BoostNft__factory, MockERC20__factory } from "../src/types";
 
 const deploy: DeployFunction = async hre => {
   console.log("Deploying BoostNft...");
   const { deploy, get } = hre.deployments;
-  const { deployer } = await hre.getNamedAccounts();
+  const { deployer, pulseInu } = await hre.getNamedAccounts();
 
 //   console.log("deployer", deployer);
 
-  const PulseInu = await get("PulseInu");
+  let pulseInuAddress = pulseInu;
+  if (!pulseInuAddress) {
+    const MockERC20 = await get("MockERC20");
+    pulseInuAddress = MockERC20.address;
+  }
 
   const name = "BoostNft";
   const symbol = "BNFT";
@@ -18,7 +22,7 @@ const deploy: DeployFunction = async hre => {
   const collectorPrice = ethers.utils.parseEther("1000000000");
   const result = await deploy("BoostNft", {
     from: deployer,
-    args: [name, symbol, baseUri, legendaryPrice, collectorPrice, PulseInu.address],
+    args: [name, symbol, baseUri, legendaryPrice, collectorPrice, pulseInuAddress],
   });
 
   if (result.newlyDeployed) {
@@ -27,6 +31,6 @@ const deploy: DeployFunction = async hre => {
 };
 
 deploy.tags = ["PulseInu", "BoostNft"];
-deploy.dependencies = ["PulseInuToken"];
+deploy.dependencies = ["MockERC20"];
 
 export default deploy;

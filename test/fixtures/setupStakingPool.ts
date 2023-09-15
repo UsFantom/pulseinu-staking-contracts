@@ -36,11 +36,11 @@ export async function setupStakingPool() {
 
   // Deploy StakingPool
   const stakingFee = ethers.utils.parseEther("1");
-  const startsAt = (await time.latest()) + 60;
   const shareRate = 15000;
   const StakingPool = <StakingPool__factory>await ethers.getContractFactory("StakingPool");
-  const stakingPool = await StakingPool.deploy(mockToken.address, boostNft.address, stakingFee, startsAt, shareRate);
+  const stakingPool = await StakingPool.deploy(mockToken.address, boostNft.address, stakingFee, shareRate);
   await stakingPool.deployed();
+  const startsAt = await stakingPool.startsAt();
 
   return {
     mockToken,
