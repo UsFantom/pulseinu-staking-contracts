@@ -7,7 +7,7 @@ const deploy: DeployFunction = async hre => {
   const { deploy } = hre.deployments;
   const { deployer } = await hre.getNamedAccounts();
 
-  console.log("deployer", deployer);
+  // console.log("deployer", deployer);
 
   const _airdropDuration = 60 * 60 * 24 * 90; // 90 days
   const _mintDuration = 60 * 60 * 24 * 180; // 180 days

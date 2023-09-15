@@ -25,6 +25,7 @@ export const chainIds = {
   goerli: 5,
   bscTest: 97,
   pulseTest: 943,
+  sepolia: 11155111,
 
   // Production
   eth: 1,
@@ -94,6 +95,16 @@ const config: HardhatUserConfig = {
       accounts: [deployerKey],
       chainId: chainIds["goerli"],
       url: `https://rpc.ankr.com/eth_goerli`,
+      verify: {
+        etherscan: {
+          apiKey: process.env.ETH_API_KEY || "",
+        },
+      },
+    },
+    sepolia: {
+      accounts: [deployerKey],
+      chainId: chainIds["sepolia"],
+      url: `https://rpc.ankr.com/eth_sepolia`,
       verify: {
         etherscan: {
           apiKey: process.env.ETH_API_KEY || "",

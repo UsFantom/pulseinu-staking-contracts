@@ -7,7 +7,7 @@ const deploy: DeployFunction = async hre => {
   const { deploy, get } = hre.deployments;
   const { deployer } = await hre.getNamedAccounts();
 
-  console.log("deployer", deployer);
+  // console.log("deployer", deployer);
 
   const PulseInu = await get("PulseInu");
 

@@ -13,5 +13,9 @@
     "editor.defaultFormatter": "JuanBlanco.solidity"
   },
   "solidity.defaultCompiler": "localNodeModule",
-  "solidity.remappingsUnix": ["@uniswap/=node_modules/@uniswap/", "@openzeppelin/=node_modules/@openzeppelin/"]
+  "solidity.remappingsUnix": [
+    "@uniswap/=node_modules/@uniswap/",
+    "@openzeppelin/=node_modules/@openzeppelin/"
+  ],
+  "solidity.compileUsingRemoteVersion": "v0.8.18+commit.87f61d96"
 }

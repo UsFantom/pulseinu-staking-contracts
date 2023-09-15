@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import "hardhat/console.sol";
+import { IPulseInu } from "./interface/IPulseInu.sol";
 
-import "./interfaces/IPulseInu.sol";
-
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /// @title PulseInu
 /// @author Bounyavong
@@ -29,15 +27,15 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
     uint256 public INITIAL_SUPPLY;
 
     // owner address of the contract
-    address public constant OWNER_ADDRESS =
-        0x81a9ca8482E9a4b05aFE23Bd5BBEE0f4F7E746d0;
+    address public constant OWNER_ADDRESS = 0x81a9ca8482E9a4b05aFE23Bd5BBEE0f4F7E746d0;
 
-    bytes32 private constant claimerMerkleRoot =
-        0x0435274178c61a6ac38e6bdb4ef8ea96136b7a51c5c63ab58f3b8331f521cbbd; // the merkle tree root of the claimer address list
-    bytes32 private constant referrerMerkleRoot =
-        0x41ec9f6040b37ed056c20cd83c2f657f5fddd7beb333c8275134ab99d5f591e1; // the merkle tree root of the referrer (address + percent) list
+    // the merkle tree root of the claimer address list
+    bytes32 private constant claimerMerkleRoot = 0x0435274178c61a6ac38e6bdb4ef8ea96136b7a51c5c63ab58f3b8331f521cbbd;
+    // the merkle tree root of the referrer (address + percent) list
+    bytes32 private constant referrerMerkleRoot = 0x41ec9f6040b37ed056c20cd83c2f657f5fddd7beb333c8275134ab99d5f591e1;
+    // the merkle tree root of the message sender address list
     bytes32 private constant firstAdopterMerkleRoot =
-        0x86ca269580aeb0d6bed18fe274240b9981312fca19f27ad7dc33ab861f76fc80; // the merkle tree root of the message sender address list
+        0x86ca269580aeb0d6bed18fe274240b9981312fca19f27ad7dc33ab861f76fc80;
 
     uint256 public countClaims;
 
@@ -72,24 +70,14 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
      * Tokens can only be minted once per unique address. The address must be within the airdrop set.
      * @param proof containing sibling hashes on the branch from the leaf to the root of the tree
      */
-    function claimFreeClaimer(
-        bytes32[] memory proof
-    ) external inAirdropTimeWindow {
+    function claimFreeClaimer(bytes32[] memory proof) external inAirdropTimeWindow {
         require(
-            MerkleProof.verify(
-                proof,
-                claimerMerkleRoot,
-                keccak256(abi.encodePacked(_msgSender()))
-            ),
+            MerkleProof.verify(proof, claimerMerkleRoot, keccak256(abi.encodePacked(_msgSender()))),
             "NOT_AIRDROP_CLAIMABLE_ADDR"
         );
 
         INITIAL_SUPPLY += contractInfo.airdropAmount * (10 ** decimals());
-        _claimTokens(
-            _msgSender(),
-            contractInfo.airdropAmount * (10 ** decimals()),
-            0x01
-        );
+        _claimTokens(_msgSender(), contractInfo.airdropAmount * (10 ** decimals()), 0x01);
     }
 
     /**
@@ -97,25 +85,13 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
      * Tokens can only be minted once per unique address. The address must be within the referrer set.
      * @param proof containing sibling hashes on the branch from the leaf to the root of the tree
      */
-    function claimReferrer(
-        bytes32[] memory proof,
-        uint256 eachPercent
-    ) external outMintTimeWindow {
+    function claimReferrer(bytes32[] memory proof, uint256 eachPercent) external outMintTimeWindow {
         require(
-            MerkleProof.verify(
-                proof,
-                referrerMerkleRoot,
-                keccak256(abi.encodePacked(_msgSender(), eachPercent))
-            ),
+            MerkleProof.verify(proof, referrerMerkleRoot, keccak256(abi.encodePacked(_msgSender(), eachPercent))),
             "NOT_REFERRER_CLAIMABLE_ADDR_PERCENT"
         );
 
-        _claimTokens(
-            _msgSender(),
-            ((INITIAL_SUPPLY * contractInfo.referrerPercent * eachPercent) /
-                1e8),
-            0x02
-        );
+        _claimTokens(_msgSender(), ((INITIAL_SUPPLY * contractInfo.referrerPercent * eachPercent) / 1e8), 0x02);
     }
 
     /**
@@ -123,23 +99,13 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
      * Tokens can only be minted once per unique address. The address must be within the first adopter set.
      * @param proof containing sibling hashes on the branch from the leaf to the root of the tree
      */
-    function claimFirstAdopter(
-        bytes32[] memory proof
-    ) external outMintTimeWindow {
+    function claimFirstAdopter(bytes32[] memory proof) external outMintTimeWindow {
         require(
-            MerkleProof.verify(
-                proof,
-                firstAdopterMerkleRoot,
-                keccak256(abi.encodePacked(_msgSender()))
-            ),
+            MerkleProof.verify(proof, firstAdopterMerkleRoot, keccak256(abi.encodePacked(_msgSender()))),
             "NOT_FIRST_ADOPTER_CLAIMABLE_ADDR"
         );
 
-        _claimTokens(
-            _msgSender(),
-            ((INITIAL_SUPPLY * contractInfo.firstAdopterPercent) / 1000000),
-            0x04
-        );
+        _claimTokens(_msgSender(), ((INITIAL_SUPPLY * contractInfo.firstAdopterPercent) / 1000000), 0x04);
     }
 
     /**
@@ -147,11 +113,7 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
      * @param to claimer address
      * @param amount PINU amout to claim
      */
-    function _claimTokens(
-        address to,
-        uint256 amount,
-        uint256 claimedFlag
-    ) private nonReentrant {
+    function _claimTokens(address to, uint256 amount, uint256 claimedFlag) private nonReentrant {
         require((claimed[to] & claimedFlag) == 0, "ALREADY_CLAIMED");
         claimed[_msgSender()] |= claimedFlag;
 
@@ -201,18 +163,14 @@ contract PulseInu is IPulseInu, ERC20, ReentrancyGuard {
 
     function transferETH(address payable to, uint256 amount) private {
         uint256 startGas = gasleft();
-        console.log("startGas:", startGas); // Log the value of startGas to the console
-        (bool success, ) = to.call{value: amount, gas: startGas}("");
+        (bool success, ) = to.call{ value: amount, gas: startGas }("");
         require(success, "FAILED_TRANSFER");
     }
 
     /** MODIFIER */
 
     modifier inAirdropTimeWindow() {
-        require(
-            block.timestamp <= contractInfo.airdropEndTime,
-            "AIRDROP_TIMEOUT"
-        );
+        require(block.timestamp <= contractInfo.airdropEndTime, "AIRDROP_TIMEOUT");
         _;
     }
 

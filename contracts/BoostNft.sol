@@ -1,52 +1,54 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
+import { AccessControlEnumerable } from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import { ERC721, ERC721Enumerable, Strings } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import { ERC2981 } from "@openzeppelin/contracts/token/common/ERC2981.sol";
-import { ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @title PulseInuNft
+import { IBoostNft } from "./interface/IBoostNft.sol";
+import { IStakingPool } from "./interface/IStakingPool.sol";
+
+/// @title BoostNft
 /// @author Bounyavong
-/// @dev PulseInuNft is a ERC721 standard NFT
-contract PulseInuNft is ERC2981, ERC721Enumerable, Ownable {
+/// @dev BoostNft is a ERC721 standard NFT
+contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
     using Strings for uint256;
+    using SafeERC20 for IERC20;
 
-    // the last tokenId that was minted already
-    uint256 public minted;
-    uint256 public maxSupply;
-    uint256 public price;
+    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+
+    address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    uint256 public constant MAX_ART_COUNT = 1500;
+
+    address public pulseInuTokenAddress;
+    address public stakingPoolAddress;
+
+    mapping(TokenType => uint256) public tokenTypePrice;
+    mapping(TokenType => uint256) public tokenTypeSupply;
+    mapping(uint256 => TokenType) public override tokenIdToType;
+
     // Base URI for each token
     string public baseURI;
-    // a mapping from an address to whether or not it can mint
-    mapping(address => bool) public controllers;
-
-    // a mapping from a token Id to a level
-    mapping(uint256 => uint256) public levels;
 
     /** EVENT */
-
-    // emit when the level of a token has been set or changed.
-    event TokenLevelSet(uint256 indexed tokenId, uint256 indexed level);
-    // emit when the default royalty has been set or changed.
-    event DefaultRoyaltySet(address indexed recipient, uint96 indexed feeNumerator);
-    // emit when the royalty of a token has been set or changed.
-    event TokenRoyaltySet(uint256 indexed tokenId, address indexed recipient, uint96 indexed feeNumerator);
+    // Event token minted by the burner
+    event TokenMinted(address indexed burner, uint256 indexed tokenId, TokenType tokenType);
 
     constructor(
         string memory _name,
         string memory _symbol,
         string memory _myBaseUri,
-        uint256 _maxSupply,
-        address defaultRoyaltyReceiver,
-        uint96 feeNumerator,
-        uint256 _price
+        uint256 _legendaryPrice,
+        uint256 _collectorPrice,
+        address _pulseInuTokenAddress
     ) ERC721(_name, _symbol) {
         baseURI = _myBaseUri;
-        _setDefaultRoyalty(defaultRoyaltyReceiver, feeNumerator);
-        controllers[_msgSender()] = true;
-        maxSupply = _maxSupply;
-        price = _price;
+        tokenTypePrice[TokenType.Legendary] = _legendaryPrice;
+        tokenTypePrice[TokenType.Collector] = _collectorPrice;
+        pulseInuTokenAddress = _pulseInuTokenAddress;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
@@ -54,61 +56,47 @@ contract PulseInuNft is ERC2981, ERC721Enumerable, Ownable {
      */
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC721Enumerable, ERC2981) returns (bool) {
+    ) public view virtual override(AccessControlEnumerable, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
-    }
-
-    /** PRIVATE */
-
-    /**
-     * @dev send funds to an address
-     * @param to the address to receive the funds
-     * @param amount the amount of the funds
-     */
-    function _safeTransferFunds(address to, uint256 amount) private returns (bool) {
-        (bool success, ) = payable(to).call{ value: amount, gas: 21000 }("");
-        return success;
     }
 
     /** USER */
 
     /**
      * @dev mint a token
-     * @param numTokens the number of the token
      */
-    function mint(uint256 numTokens) external payable {
-        require(minted + numTokens <= maxSupply, "max supply");
-        require(numTokens > 0, "Min 1");
-        require(numTokens <= 10, "Max 10");
+    function mint(TokenType _tokenType) external {
+        IERC20(pulseInuTokenAddress).safeTransferFrom(msg.sender, BURN_ADDRESS, tokenTypePrice[_tokenType]);
+        uint256 tokenId = totalSupply();
+        _mint(msg.sender, tokenId);
+        tokenIdToType[tokenId] = _tokenType;
+        tokenTypeSupply[_tokenType]++;
 
-        require(msg.value == price * numTokens, "Insufficient Amount");
-        require(_safeTransferFunds(owner(), msg.value), "FAILED_OWNER_TRANSFER");
+        emit TokenMinted(msg.sender, tokenId, _tokenType);
+    }
 
-        for (uint256 i = 0; i < numTokens; i++) {
-            if (minted < 10) {
-                levels[minted] = 3;
-            } else if (minted < 1000) {
-                levels[minted] = 2;
-            } else {
-                levels[minted] = 1;
-            }
-            _safeMint(_msgSender(), minted++);
+    /**
+     * @dev See {ERC721-_beforeTokenTransfer}.
+     */
+    function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize) internal override {
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
+
+        // update the bonus shares of the staking pool
+        if (stakingPoolAddress != address(0)) {
+            IStakingPool(stakingPoolAddress).updateBoostNftBonusShares(from, to, firstTokenId);
         }
     }
 
-    /** CONTROLLER */
+    /** Roles */
 
-    /**
-     * @dev set a level of a token
-     * @param tokenId the token Id
-     * @param _level new level value
-     */
-    function setTokenLevel(uint256 tokenId, uint256 _level) external onlyController {
-        levels[tokenId] = _level;
-        emit TokenLevelSet(tokenId, _level);
+    function burn(uint256 tokenId) external onlyRole(BURNER_ROLE) {
+        _burn(tokenId);
+        tokenTypeSupply[tokenIdToType[tokenId]]--;
     }
 
-    /** ADMIN */
+    function setStakingPool(address _stakingPoolAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        stakingPoolAddress = _stakingPoolAddress;
+    }
 
     /**
      * @dev Internal function to set the base URI for all token IDs. It is
@@ -116,60 +104,18 @@ contract PulseInuNft is ERC2981, ERC721Enumerable, Ownable {
      * or to the token ID if {tokenURI} is empty.
      * @param _myBaseUri the base URI string
      */
-    function setBaseURI(string calldata _myBaseUri) external onlyOwner {
+    function setBaseURI(string calldata _myBaseUri) external onlyRole(DEFAULT_ADMIN_ROLE) {
         baseURI = _myBaseUri;
     }
 
     /**
      * @dev set the price to mint one token
-     * @param _price the new price
+     * @param _legendaryPrice price of the legendary token
+     * @param _collectorPrice price of the collector token
      */
-    function setPrice(uint256 _price) external onlyOwner {
-        price = _price;
-    }
-
-    /**
-     * @dev enables an address to mint
-     * @param _controller the address to enable
-     */
-    function addController(address _controller) external onlyOwner {
-        controllers[_controller] = true;
-    }
-
-    /**
-     * @dev disables an address from minting
-     * @param _controller the address to disbale
-     */
-    function removeController(address _controller) external onlyOwner {
-        delete controllers[_controller];
-    }
-
-    /**
-     * @dev Sets the royalty information that all ids in this contract will default to.
-     *
-     * Requirements:
-     *
-     * - `receiver` cannot be the zero address.
-     * - `feeNumerator` cannot be greater than the fee denominator.
-     */
-    function setDefaultRoyalty(address receiver, uint96 feeNumerator) external onlyOwner {
-        _deleteDefaultRoyalty();
-        _setDefaultRoyalty(receiver, feeNumerator);
-
-        emit DefaultRoyaltySet(receiver, feeNumerator);
-    }
-
-    /**
-     * @dev Sets the royalty information for a specific token id, overriding the global default.
-     *
-     * Requirements:
-     *
-     * - `receiver` cannot be the zero address.
-     * - `feeNumerator` cannot be greater than the fee denominator.
-     */
-    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) external onlyOwner {
-        _setTokenRoyalty(tokenId, receiver, feeNumerator);
-        emit TokenRoyaltySet(tokenId, receiver, feeNumerator);
+    function setPrices(uint256 _legendaryPrice, uint256 _collectorPrice) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        tokenTypePrice[TokenType.Legendary] = _legendaryPrice;
+        tokenTypePrice[TokenType.Collector] = _collectorPrice;
     }
 
     /** VIEW */
@@ -183,10 +129,9 @@ contract PulseInuNft is ERC2981, ERC721Enumerable, Ownable {
         return baseURI;
     }
 
-    /** MODIFIER */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireMinted(tokenId);
 
-    modifier onlyController() {
-        require(controllers[_msgSender()] == true, "ONLY_CONTROLLER");
-        _;
+        return string(abi.encodePacked(baseURI, (tokenId % MAX_ART_COUNT).toString(), ".json"));
     }
 }
