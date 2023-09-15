@@ -7,7 +7,7 @@ const deploy: DeployFunction = async hre => {
   const { deploy, get } = hre.deployments;
   const { deployer, pulseInu } = await hre.getNamedAccounts();
 
-//   console.log("deployer", deployer);
+  //   console.log("deployer", deployer);
 
   let pulseInuAddress = pulseInu;
   if (!pulseInuAddress) {
@@ -18,8 +18,8 @@ const deploy: DeployFunction = async hre => {
   const name = "BoostNft";
   const symbol = "BNFT";
   const baseUri = "https://nftstorage.link/ipfs/bafybeiccq4iah4osmiszzlmfp6iqvw6o2pzhqjokhcdo4p7jlx4utstsdi/";
-  const legendaryPrice = ethers.utils.parseEther("5000000000");
-  const collectorPrice = ethers.utils.parseEther("1000000000");
+  const legendaryPrice = ethers.utils.parseUnits("5000000000", 12);
+  const collectorPrice = ethers.utils.parseUnits("1000000000", 12);
   const result = await deploy("BoostNft", {
     from: deployer,
     args: [name, symbol, baseUri, legendaryPrice, collectorPrice, pulseInuAddress],
