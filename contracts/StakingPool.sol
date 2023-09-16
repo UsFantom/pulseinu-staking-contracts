@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721Enumerable } from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import { IPulseXRouter02 } from "./interface/IPulseXRouter02.sol";
 import { IStakingPool } from "./interface/IStakingPool.sol";
 import { IBoostNft } from "./interface/IBoostNft.sol";
 
@@ -19,6 +20,8 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     bytes32 public constant STAKING_MODIFY_ROLE = keccak256("STAKING_MODIFY_ROLE");
+
+    address public constant PULSE_X_ROUTER_02 = 0x98bf93ebf5c380C0e6Ae8e192A7e2AE08edAcc02;
 
     uint256 public immutable stakingFee;
     uint256 public constant PERCENT_BASIS = 1e4;
@@ -134,8 +137,24 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
+    function _swapPlsToPinu(uint256 plsAmount) private {
+        address[] memory path = new address[](2);
+        path[0] = IPulseXRouter02(PULSE_X_ROUTER_02).WPLS();
+        path[1] = address(pinuToken);
+        IPulseXRouter02(PULSE_X_ROUTER_02).swapExactETHForTokens{ value: plsAmount }(
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+    }
+
     function _burnPls(uint256 amount) private {
-        // pinuToken.safeTransferFrom(msg.sender, BURN_ADDRESS, amount);
+        uint256 initialPinuBalance = pinuToken.balanceOf(address(this));
+        _swapPlsToPinu(amount);
+        uint256 newPinuBalance = pinuToken.balanceOf(address(this));
+        uint256 pinuSwapped = newPinuBalance - initialPinuBalance;
+        pinuToken.transfer(BURN_ADDRESS, pinuSwapped);
     }
 
     function stake(

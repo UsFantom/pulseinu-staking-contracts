@@ -2177,6 +2177,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@pancakeswap/pancake-swap-lib@npm:^0.0.4":
+  version: 0.0.4
+  resolution: "@pancakeswap/pancake-swap-lib@npm:0.0.4"
+  checksum: a22bee5f6a2f819a820ef7c078afe628763aedd56d42ca0b670eb384d23bfb1957ebf99398f723ee3769b004a35a8c88ea5d430ad704ae0fa99436f811748be7
+  languageName: node
+  linkType: hard
+
 "@pkgjs/parseargs@npm:^0.11.0":
   version: 0.11.0
   resolution: "@pkgjs/parseargs@npm:0.11.0"
@@ -9344,6 +9351,7 @@ __metadata:
     "@nomiclabs/hardhat-ethers": ^2.0.2
     "@nomiclabs/hardhat-etherscan": latest
     "@openzeppelin/contracts": ^4.7.0
+    "@pancakeswap/pancake-swap-lib": ^0.0.4
     "@typechain/ethers-v5": ^11.0.0
     "@typechain/hardhat": ^7.0.0
     "@types/chai": ^4.3.4

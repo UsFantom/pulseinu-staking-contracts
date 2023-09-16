@@ -95,6 +95,7 @@
     "@chainlink/contracts": "^0.4.1",
     "@nomiclabs/hardhat-etherscan": "latest",
     "@openzeppelin/contracts": "^4.7.0",
+    "@pancakeswap/pancake-swap-lib": "^0.0.4",
     "@typechain/ethers-v5": "^11.0.0",
     "@typechain/hardhat": "^7.0.0",
     "solc": "0.8.18"

@@ -19,7 +19,6 @@ dotenvConfig({ path: resolve(__dirname, "./.env") });
 export const chainIds = {
   // Dev
   hardhat: 31337,
-  forkfy: 31337,
 
   // Test
   goerli: 5,
@@ -141,16 +140,16 @@ const config: HardhatUserConfig = {
         },
       },
     },
-    forkfy: {
+    pulse: {
       accounts: [deployerKey],
-      chainId: chainIds["forkfy"],
-      url: `https://flokifi-rpc.forkfy.io`,
+      chainId: chainIds["pulse"],
+      url: "https://rpc.pulsechain.com",
       verify: {
         etherscan: {
-          apiUrl: "https://explorer-flokifi.forkfy.io",
+          apiUrl: "https://scan.pulsechain.com",
         },
       },
-    },
+    }
   },
   etherscan: {
     apiKey: {
