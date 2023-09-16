@@ -21,7 +21,7 @@ export async function setupStakingPool() {
 
   // Deploy MockERC20
   const MockERC20 = <MockERC20__factory>await ethers.getContractFactory("MockERC20");
-  const mockToken = await MockERC20.deploy("MockToken", "MTK", ethers.utils.parseEther("1000"));
+  const mockToken = await MockERC20.deploy("MockToken", "MTK", ethers.utils.parseUnits("1000000000000", 12));
   await mockToken.deployed();
 
   // Deploy BoostNft
@@ -29,8 +29,8 @@ export async function setupStakingPool() {
   const name = "BoostNft";
   const symbol = "BNFT";
   const baseURI = "https://nftstorage.link/ipfs/bafybeiccq4iah4osmiszzlmfp6iqvw6o2pzhqjokhcdo4p7jlx4utstsdi/";
-  const legendaryPrice = ethers.utils.parseEther("5000000000");
-  const collectorPrice = ethers.utils.parseEther("1000000000");
+  const legendaryPrice = ethers.utils.parseUnits("5000000000", 12);
+  const collectorPrice = ethers.utils.parseUnits("1000000000", 12);
   const boostNft = await BoostNft.deploy(name, symbol, baseURI, legendaryPrice, collectorPrice, mockToken.address);
   await boostNft.deployed();
 
@@ -41,6 +41,12 @@ export async function setupStakingPool() {
   const stakingPool = await StakingPool.deploy(mockToken.address, boostNft.address, stakingFee, shareRate);
   await stakingPool.deployed();
   const startsAt = await stakingPool.startsAt();
+
+  // set staking pool address and grant modify staking role to the boost nft contract
+  let tx = await boostNft.setStakingPool(stakingPool.address);
+  await tx.wait();
+  tx = await stakingPool.grantRole(await stakingPool.STAKING_MODIFY_ROLE(), boostNft.address);
+  await tx.wait();
 
   return {
     mockToken,

@@ -12,8 +12,6 @@ import { IPulseXRouter02 } from "./interface/IPulseXRouter02.sol";
 import { IStakingPool } from "./interface/IStakingPool.sol";
 import { IBoostNft } from "./interface/IBoostNft.sol";
 
-import "hardhat/console.sol";
-
 contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, Pausable {
     using SafeERC20 for IERC20;
 
@@ -63,9 +61,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     // User address => staking information
     mapping(address => StakingInfo) public override userStakingInfo;
 
-    // BoostNft tokenId => user address
-    mapping(uint256 => address) public boostNftToUser;
-
     mapping(address => address[]) public referrals;
     mapping(address => StakingInfo[]) public stakingInfos;
 
@@ -96,10 +91,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
      * Next time we calculate how much they earned since last update and accumulate on rewards[_user].
      */
     function getUserRewards(address _user) public view returns (uint256) {
-        console.log("userRewardPerSharePaid[_user]: ", userRewardPerSharePaid[_user]);
-        console.log("rewards[_user]: ", rewards[_user]);
-        console.log("rewardPerShare(): ", rewardPerShare());
-        console.log("userStakingInfo[_user].shares: ", userStakingInfo[_user].shares);
         uint256 rewardsSinceLastUpdate = ((userStakingInfo[_user].shares *
             (rewardPerShare() - userRewardPerSharePaid[_user])) / 1e18);
         return rewardsSinceLastUpdate + rewards[_user];
@@ -110,18 +101,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     }
 
     function getNftBonus(uint256 _amount) external view returns (uint256) {
-        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(msg.sender);
-        if (nftBalance > 0) {
-            uint256 boostPercent = 0;
-            for (uint256 i = 0; i < nftBalance; i++) {
-                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(msg.sender, i);
-                if (boostNftToUser[tokenId] == address(0)) {
-                    boostPercent += _getBoostPercent(tokenId);
-                }
-            }
-            return (_amount * boostPercent) / PERCENT_BASIS;
-        }
-        return 0;
+        return _amount * getUserBoostPercent(msg.sender);
     }
 
     function _bonus(uint256 _amount, uint256 _days) private pure returns (uint256) {
@@ -157,15 +137,36 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         pinuToken.transfer(BURN_ADDRESS, pinuSwapped);
     }
 
+    function getUserBoostPercent(address _user) public view returns (uint256) {
+        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(_user);
+        if (nftBalance > 0) {
+            uint256 boostPercent = 0;
+            for (uint256 i = 0; i < nftBalance; i++) {
+                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(_user, i);
+                boostPercent += _getBoostPercent(tokenId);
+            }
+            return boostPercent;
+        }
+        return 0;
+    }
+
+    function _updateReward(address _user) private {
+        rewards[_user] = getUserRewards(_user);
+        rewardPerShareStored = rewardPerShare();
+        userRewardPerSharePaid[_user] = rewardPerShareStored;
+    }
+
     function stake(
         uint256 _amount,
         uint256 _stakeDays,
         address _referrer
-    ) external payable nonReentrant whenNotPaused updateReward(msg.sender) {
+    ) external payable nonReentrant whenNotPaused {
         require(userStakingInfo[msg.sender].balance == 0, "StakingPool::stakeMore: active stake exists, unstake first");
         require(_amount > 0, "StakingPool::stake: amount = 0");
         require(_stakeDays > 0, "StakingPool::stake: _stakeDays = 0");
         require(msg.value == stakingFee, "StakingPool::stake: incorrect fee amount");
+
+        _updateReward(msg.sender);
 
         // burn fee
         uint256 _burnFee = (stakingFee * STAKING_BURN_PERCENT) / PERCENT_BASIS;
@@ -175,10 +176,11 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _burnFee -= _referrerFee;
             referrals[_referrer].push(msg.sender);
         }
-        _burnPls(_burnFee);
+        // _burnPls(_burnFee);
 
         userStakingInfo[msg.sender].balance = _amount;
-        userStakingInfo[msg.sender].shares = calcShares(_amount, _stakeDays);
+        uint256 _shares = calcShares(_amount, _stakeDays);
+        userStakingInfo[msg.sender].shares = _shares + (_shares * getUserBoostPercent(msg.sender)) / PERCENT_BASIS;
         userStakingInfo[msg.sender].startDay = uint16(getCurrentDay());
         userStakingInfo[msg.sender].stakeDays = uint16(_stakeDays);
 
@@ -189,17 +191,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         currentReward = (stakingFee * STAKING_REWARDS_PERCENT) / PERCENT_BASIS;
         totalReward += currentReward;
 
-        // add boost nft bonus shares
-        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(msg.sender);
-        if (nftBalance > 0) {
-            for (uint256 i = 0; i < nftBalance; i++) {
-                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(msg.sender, i);
-                if (boostNftToUser[tokenId] == address(0)) {
-                    _increaseShares(msg.sender, tokenId);
-                }
-            }
-        }
-
         emit Staked(msg.sender, _amount);
     }
 
@@ -207,15 +198,17 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return (amount * PLS_TO_PINU_RATE * PINU_UNIT) / 1e18;
     }
 
-    function unstake() external nonReentrant updateReward(msg.sender) {
+    function unstake() external nonReentrant {
         address _user = msg.sender;
+        _updateReward(_user);
+        currentReward = 0;
+
+        uint256 userBalance = userStakingInfo[_user].balance;
+        require(userBalance > 0, "StakingPool::unstake: no active stake");
         require(
             getCurrentDay() > userStakingInfo[_user].startDay + userStakingInfo[_user].stakeDays,
             "StakingPool::unstake: stake not matured"
         );
-        uint256 userBalance = userStakingInfo[_user].balance;
-        require(userBalance > 0, "StakingPool::unstake: no active stake");
-
         // claim rewards first
         uint256 reward = rewards[_user];
         if (reward > 0) {
@@ -223,7 +216,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _safeTranferFunds(_user, reward);
             emit RewardPaid(_user, reward);
         }
-        currentReward = 0;
 
         // recalculate the share rate
         uint256 _totalPinu = userBalance + _convertPlsToPinu(reward);
@@ -231,17 +223,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             userStakingInfo[_user].shares;
         if (_newShareRate > currentShareRate) {
             currentShareRate = _newShareRate;
-        }
-
-        // remove boost nft info
-        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(_user);
-        if (nftBalance > 0) {
-            for (uint256 i = 0; i < nftBalance; i++) {
-                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(_user, i);
-                if (boostNftToUser[tokenId] == _user) {
-                    _decreaseShares(_user, tokenId);
-                }
-            }
         }
 
         // remove the staking info
@@ -278,47 +259,36 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         }
     }
 
-    function _decreaseShares(address user, uint256 tokenId) private {
-        uint256 boostPercent = _getBoostPercent(tokenId);
-        uint256 boostNftBonusShares = (userStakingInfo[user].shares * boostPercent) / PERCENT_BASIS;
-        userStakingInfo[user].shares -= boostNftBonusShares;
-        totalShares -= boostNftBonusShares;
+    function _updateShares(address user, uint256 tokenId, bool _sign) private {
+        // update reward first
+        _updateReward(user);
+        currentReward = 0;
 
-        delete boostNftToUser[tokenId];
-    }
+        uint256 userBoostPercent = getUserBoostPercent(user);
+        uint256 tokenBoostPercent = _getBoostPercent(tokenId);
+        uint256 originShares = (userStakingInfo[user].shares * PERCENT_BASIS) / (PERCENT_BASIS + userBoostPercent);
+        uint256 newUserBoostPercent = (
+            _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
+        );
+        uint256 newShares = originShares + (originShares * newUserBoostPercent) / PERCENT_BASIS;
 
-    function _increaseShares(address user, uint256 tokenId) private {
-        uint256 boostPercent = _getBoostPercent(tokenId);
-        uint256 boostNftBonusShares = (userStakingInfo[user].shares * boostPercent) / PERCENT_BASIS;
-        userStakingInfo[user].shares += boostNftBonusShares;
-        totalShares += boostNftBonusShares;
-
-        boostNftToUser[tokenId] = user;
+        // update total shares and the user shares
+        totalShares = totalShares - userStakingInfo[user].shares + newShares;
+        userStakingInfo[user].shares = newShares;
     }
 
     function updateBoostNftBonusShares(
         address tokenSender,
         address tokenReceiver,
         uint256 tokenId
-    ) public onlyRole(STAKING_MODIFY_ROLE) {
-        if (userStakingInfo[tokenSender].shares > 0 && boostNftToUser[tokenId] == tokenSender) {
+    ) external nonReentrant onlyRole(STAKING_MODIFY_ROLE) {
+        if (userStakingInfo[tokenSender].shares > 0) {
             // reduce the shares of the user
-            _decreaseShares(tokenSender, tokenId);
+            _updateShares(tokenSender, tokenId, false);
         }
-        if (userStakingInfo[tokenReceiver].shares > 0 && boostNftToUser[tokenId] == address(0)) {
+        if (userStakingInfo[tokenReceiver].shares > 0) {
             // increase the shares of the user
-            _increaseShares(tokenReceiver, tokenId);
+            _updateShares(tokenReceiver, tokenId, true);
         }
-    }
-
-    /* ========== MODIFIERS ========== */
-
-    modifier updateReward(address _user) {
-        rewardPerShareStored = rewardPerShare();
-        if (_user != address(0)) {
-            rewards[_user] = getUserRewards(_user);
-            userRewardPerSharePaid[_user] = rewardPerShareStored;
-        }
-        _;
     }
 }
