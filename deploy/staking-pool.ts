@@ -5,12 +5,13 @@ import { StakingPool__factory, BoostNft__factory } from "../src/types";
 const deploy: DeployFunction = async hre => {
   console.log("Deploying StakingPool...");
   const { deploy, get } = hre.deployments;
-  const { deployer, pulseInu } = await hre.getNamedAccounts();
+  const { deployer, pulseInu, routerAddress } = await hre.getNamedAccounts();
 
   // console.log("deployer", deployer);
 
   let pulseInuAddress = pulseInu;
   if (!pulseInuAddress) {
+    console.log("PulseInu contract not found, using MockERC20...");
     const MockERC20 = await get("MockERC20");
     pulseInuAddress = MockERC20.address;
   }

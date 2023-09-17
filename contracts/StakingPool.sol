@@ -19,7 +19,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     bytes32 public constant STAKING_MODIFY_ROLE = keccak256("STAKING_MODIFY_ROLE");
 
-    address public constant PULSE_X_ROUTER_02 = 0x98bf93ebf5c380C0e6Ae8e192A7e2AE08edAcc02;
+    address public immutable pulseXRouter02;
 
     uint256 public immutable stakingFee;
     uint256 public constant PERCENT_BASIS = 1e4;
@@ -64,8 +64,9 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     mapping(address => address[]) public referrals;
     mapping(address => StakingInfo[]) public stakingInfos;
 
-    constructor(address _pinuToken, address _boostNft, uint256 _stakingFee, uint256 _shareRate) {
+    constructor(address _pinuToken, address _routerAddress, address _boostNft, uint256 _stakingFee, uint256 _shareRate) {
         pinuToken = IERC20(_pinuToken);
+        pulseXRouter02 = _routerAddress;
         boostNft = _boostNft;
         stakingFee = _stakingFee;
         startsAt = block.timestamp;
@@ -119,9 +120,9 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     function _swapPlsToPinu(uint256 plsAmount) private {
         address[] memory path = new address[](2);
-        path[0] = IPulseXRouter02(PULSE_X_ROUTER_02).WPLS();
+        path[0] = IPulseXRouter02(pulseXRouter02).WPLS();
         path[1] = address(pinuToken);
-        IPulseXRouter02(PULSE_X_ROUTER_02).swapExactETHForTokens{ value: plsAmount }(
+        IPulseXRouter02(pulseXRouter02).swapExactETHForTokens{ value: plsAmount }(
             0,
             path,
             address(this),
