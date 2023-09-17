@@ -5,11 +5,11 @@ import { StakingPool__factory, BoostNft__factory } from "../src/types";
 const deploy: DeployFunction = async hre => {
   console.log("Deploying StakingPool...");
   const { deploy, get } = hre.deployments;
-  const { deployer, pulseInu, routerAddress } = await hre.getNamedAccounts();
+  const { deployer, pinuToken, routerAddress } = await hre.getNamedAccounts();
 
   // console.log("deployer", deployer);
 
-  let pulseInuAddress = pulseInu;
+  let pulseInuAddress = pinuToken;
   if (!pulseInuAddress) {
     console.log("PulseInu contract not found, using MockERC20...");
     const MockERC20 = await get("MockERC20");
@@ -23,12 +23,12 @@ const deploy: DeployFunction = async hre => {
   const signer = boostNftFactory.signer;
 
   // stakingFee is the amount of PLS
-  const stakingFee = ethers.utils.parseEther("0.001");
+  const stakingFee = ethers.utils.parseEther("100000");
   // shareRate is 1.5
   const shareRate = 15000;
   const result = await deploy("StakingPool", {
     from: deployer,
-    args: [pulseInuAddress, BoostNft.address, stakingFee, shareRate],
+    args: [pulseInuAddress, routerAddress, BoostNft.address, stakingFee, shareRate],
   });
 
   const stakingPool = StakingPool__factory.connect(result.address, signer);

@@ -164,7 +164,8 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     ) external payable nonReentrant whenNotPaused {
         require(userStakingInfo[msg.sender].balance == 0, "StakingPool::stakeMore: active stake exists, unstake first");
         require(_amount > 0, "StakingPool::stake: amount = 0");
-        require(_stakeDays > 0, "StakingPool::stake: _stakeDays = 0");
+        require(_stakeDays > 1, "StakingPool::stake: stakeDays <= 1");
+        require(_stakeDays <= 1000, "StakingPool::stake: stakeDays > 1000");
         require(msg.value == stakingFee, "StakingPool::stake: incorrect fee amount");
 
         _updateReward(msg.sender);
@@ -177,7 +178,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _burnFee -= _referrerFee;
             referrals[_referrer].push(msg.sender);
         }
-        // _burnPls(_burnFee);
+        _burnPls(_burnFee);
 
         userStakingInfo[msg.sender].balance = _amount;
         uint256 _shares = calcShares(_amount, _stakeDays);
