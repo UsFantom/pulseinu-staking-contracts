@@ -229,6 +229,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         totalShares -= userStakingInfo[_user].shares;
         totalStaked -= userBalance;
 
+        userStakingInfo[_user].rewards = reward;
         stakingInfos[_user].push(userStakingInfo[_user]);
         delete userStakingInfo[_user];
 
