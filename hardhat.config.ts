@@ -65,6 +65,7 @@ const config: HardhatUserConfig = {
     treasury: getAccounts("TREASURY_ADDRESS"),
     routerAddress: getAccounts("ROUTER_ADDRESS"),
     pinuToken: getAccounts("PINU_TOKEN"),
+    daiToken: getAccounts("DAI_TOKEN"),
   },
   networks: {
     hardhat: {

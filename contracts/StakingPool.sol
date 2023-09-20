@@ -20,6 +20,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     bytes32 public constant STAKING_MODIFY_ROLE = keccak256("STAKING_MODIFY_ROLE");
 
     address public immutable pulseXRouter02;
+    address public immutable daiToken;
 
     uint256 public immutable stakingFee;
     uint256 public constant PERCENT_BASIS = 1e4;
@@ -53,6 +54,8 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     uint256 public totalShares;
     // Total rewards staked by all users
     uint256 public totalReward;
+    // Total reward paid already
+    uint256 public totalRewardPaid;
     // Current reward staked by all users
     uint256 public currentReward;
     // Current Share rate
@@ -61,12 +64,20 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     // User address => staking information
     mapping(address => StakingInfo) public override userStakingInfo;
 
-    mapping(address => address[]) public referrals;
-    mapping(address => StakingInfo[]) public stakingInfos;
+    mapping(address => address[]) private referrals;
+    mapping(address => StakingInfo[]) private userStakingHistory;
 
-    constructor(address _pinuToken, address _routerAddress, address _boostNft, uint256 _stakingFee, uint256 _shareRate) {
+    constructor(
+        address _pinuToken,
+        address _routerAddress,
+        address _daiToken,
+        address _boostNft,
+        uint256 _stakingFee,
+        uint256 _shareRate
+    ) {
         pinuToken = IERC20(_pinuToken);
         pulseXRouter02 = _routerAddress;
+        daiToken = _daiToken;
         boostNft = _boostNft;
         stakingFee = _stakingFee;
         startsAt = block.timestamp;
@@ -77,12 +88,37 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     /* ========== VIEWS ========== */
 
+    function getTokenPrice(address _tokenIn, address _tokenOut, uint256 _amountIn) public view returns (uint256) {
+        address[] memory path = new address[](2);
+        path[0] = _tokenIn;
+        path[1] = _tokenOut;
+
+        uint256[] memory amountsOut = IPulseXRouter02(pulseXRouter02).getAmountsOut(_amountIn, path);
+        return amountsOut[1]; // Returns the estimated amount of _tokenOut for _amountIn
+    }
+
+    function getPinuPriceOfPls() external view returns (uint256) {
+        return getTokenPrice(address(pinuToken), IPulseXRouter02(pulseXRouter02).WPLS(), PINU_UNIT);
+    }
+
+    function getPlsPriceOfUsd() external view returns (uint256) {
+        return getTokenPrice(IPulseXRouter02(pulseXRouter02).WPLS(), daiToken, 1e18);
+    }
+
     function getCurrentDay() public view returns (uint256) {
         return (block.timestamp - startsAt) / 1 days;
     }
 
-    function calcShares(uint256 _stakedAmount, uint256 _stakingDays) public view returns (uint256) {
-        uint256 _shares = ((_stakedAmount + _bonus(_stakedAmount, _stakingDays)) / currentShareRate) * SHARE_RATE_BASIS;
+    function calcShares(
+        uint256 _stakedAmount,
+        uint256 _stakeDays,
+        uint256 _boostPercent
+    ) public view returns (uint256) {
+        uint256 _totalPinuAmount = _stakedAmount +
+            getLengthBonus(_stakedAmount, _stakeDays) +
+            (_stakedAmount * _boostPercent) /
+            PERCENT_BASIS;
+        uint256 _shares = (_totalPinuAmount * SHARE_RATE_BASIS) / currentShareRate;
         return _shares;
     }
 
@@ -97,12 +133,16 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return rewardsSinceLastUpdate + rewards[_user];
     }
 
-    function getLengthBonus(uint256 _amount, uint256 _days) external pure returns (uint256) {
-        return _bonus(_amount, _days);
+    function getUserReferrals(address _user) external view returns (address[] memory) {
+        return referrals[_user];
     }
 
-    function getNftBonus(uint256 _amount) external view returns (uint256) {
-        return _amount * getUserBoostPercent(msg.sender);
+    function getUserStakeHistory(address _user) external view returns (StakingInfo[] memory) {
+        return userStakingHistory[_user];
+    }
+
+    function getLengthBonus(uint256 _amount, uint256 _days) public pure returns (uint256) {
+        return _bonus(_amount, _days);
     }
 
     function _bonus(uint256 _amount, uint256 _days) private pure returns (uint256) {
@@ -157,11 +197,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         userRewardPerSharePaid[_user] = rewardPerShareStored;
     }
 
-    function stake(
-        uint256 _amount,
-        uint256 _stakeDays,
-        address _referrer
-    ) external payable nonReentrant whenNotPaused {
+    function stake(uint256 _amount, uint256 _stakeDays, address _referrer) external payable nonReentrant whenNotPaused {
         require(userStakingInfo[msg.sender].balance == 0, "StakingPool::stakeMore: active stake exists, unstake first");
         require(_amount > 0, "StakingPool::stake: amount = 0");
         require(_stakeDays > 1, "StakingPool::stake: stakeDays <= 1");
@@ -181,8 +217,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         _burnPls(_burnFee);
 
         userStakingInfo[msg.sender].balance = _amount;
-        uint256 _shares = calcShares(_amount, _stakeDays);
-        userStakingInfo[msg.sender].shares = _shares + (_shares * getUserBoostPercent(msg.sender)) / PERCENT_BASIS;
+        userStakingInfo[msg.sender].shares = calcShares(_amount, _stakeDays, getUserBoostPercent(msg.sender));
         userStakingInfo[msg.sender].startDay = uint16(getCurrentDay());
         userStakingInfo[msg.sender].stakeDays = uint16(_stakeDays);
 
@@ -216,6 +251,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         if (reward > 0) {
             rewards[_user] = 0;
             _safeTranferFunds(_user, reward);
+            totalRewardPaid += reward;
             emit RewardPaid(_user, reward);
         }
 
@@ -232,7 +268,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         totalStaked -= userBalance;
 
         userStakingInfo[_user].rewards = reward;
-        stakingInfos[_user].push(userStakingInfo[_user]);
+        userStakingHistory[_user].push(userStakingInfo[_user]);
         delete userStakingInfo[_user];
 
         pinuToken.safeTransfer(_user, userBalance);
@@ -269,11 +305,14 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
         uint256 userBoostPercent = getUserBoostPercent(user);
         uint256 tokenBoostPercent = _getBoostPercent(tokenId);
-        uint256 originShares = (userStakingInfo[user].shares * PERCENT_BASIS) / (PERCENT_BASIS + userBoostPercent);
         uint256 newUserBoostPercent = (
             _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
         );
-        uint256 newShares = originShares + (originShares * newUserBoostPercent) / PERCENT_BASIS;
+        uint256 newShares = calcShares(
+            userStakingInfo[user].balance,
+            userStakingInfo[user].stakeDays,
+            newUserBoostPercent
+        );
 
         // update total shares and the user shares
         totalShares = totalShares - userStakingInfo[user].shares + newShares;

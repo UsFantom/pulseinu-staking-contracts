@@ -5,7 +5,7 @@ import { StakingPool__factory, BoostNft__factory } from "../src/types";
 const deploy: DeployFunction = async hre => {
   console.log("Deploying StakingPool...");
   const { deploy, get } = hre.deployments;
-  const { deployer, pinuToken, routerAddress } = await hre.getNamedAccounts();
+  const { deployer, pinuToken, routerAddress, daiToken } = await hre.getNamedAccounts();
 
   // console.log("deployer", deployer);
 
@@ -28,7 +28,7 @@ const deploy: DeployFunction = async hre => {
   const shareRate = 15000;
   const result = await deploy("StakingPool", {
     from: deployer,
-    args: [pulseInuAddress, routerAddress, BoostNft.address, stakingFee, shareRate],
+    args: [pulseInuAddress, routerAddress, daiToken, BoostNft.address, stakingFee, shareRate],
   });
 
   const stakingPool = StakingPool__factory.connect(result.address, signer);
