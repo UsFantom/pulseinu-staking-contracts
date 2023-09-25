@@ -204,7 +204,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _burnFee -= _referrerFee;
             referrals[_referrer].push(msg.sender);
         }
-        // _burnPls(_burnFee);
+        _burnPls(_burnFee);
 
         StakingInfo memory _stakingInfo = StakingInfo({
             balance: _amount,
