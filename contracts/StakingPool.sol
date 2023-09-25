@@ -43,10 +43,6 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     uint256 public startsAt;
     // Reward per token stored
     uint256 public rewardPerShareStored;
-    // Reward per token paid
-    mapping(address => uint256) public userRewardPerSharePaid;
-    // User address => rewards to be claimed
-    mapping(address => uint256) public rewards;
 
     // Raw amount staked by all users
     uint256 public totalStaked;
@@ -54,18 +50,15 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     uint256 public totalShares;
     // Total rewards staked by all users
     uint256 public totalReward;
-    // Total reward paid already
-    uint256 public totalRewardPaid;
     // Current reward staked by all users
     uint256 public currentReward;
     // Current Share rate
     uint256 public currentShareRate;
 
     // User address => staking information
-    mapping(address => StakingInfo) public override userStakingInfo;
+    mapping(address => StakingInfo[]) public userStakingInfo;
 
     mapping(address => address[]) private referrals;
-    mapping(address => StakingInfo[]) private userStakingHistory;
 
     constructor(
         address _pinuToken,
@@ -127,10 +120,10 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
      * We update "rewards[_user]" with how much they are entitled to, up to current block.
      * Next time we calculate how much they earned since last update and accumulate on rewards[_user].
      */
-    function getUserRewards(address _user) public view returns (uint256) {
-        uint256 rewardsSinceLastUpdate = ((userStakingInfo[_user].shares *
-            (rewardPerShare() - userRewardPerSharePaid[_user])) / 1e18);
-        return rewardsSinceLastUpdate + rewards[_user];
+    function getUserRewards(address _user, uint256 _stakeNumber) public view returns (uint256) {
+        uint256 rewardsSinceLastUpdate = ((userStakingInfo[_user][_stakeNumber].shares *
+            (rewardPerShare() - userStakingInfo[_user][_stakeNumber].userRewardPerSharePaid)) / 1e18);
+        return rewardsSinceLastUpdate + userStakingInfo[_user][_stakeNumber].rewards;
     }
 
     function getUserReferrals(address _user) external view returns (address[] memory) {
@@ -138,7 +131,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     }
 
     function getUserStakeHistory(address _user) external view returns (StakingInfo[] memory) {
-        return userStakingHistory[_user];
+        return userStakingInfo[_user];
     }
 
     function getLengthBonus(uint256 _amount, uint256 _days) public pure returns (uint256) {
@@ -191,20 +184,17 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return 0;
     }
 
-    function _updateReward(address _user) private {
-        rewards[_user] = getUserRewards(_user);
+    function _updateReward(address _user, uint256 _stakeNumber) private {
+        userStakingInfo[_user][_stakeNumber].rewards = getUserRewards(_user, _stakeNumber);
         rewardPerShareStored = rewardPerShare();
-        userRewardPerSharePaid[_user] = rewardPerShareStored;
+        userStakingInfo[_user][_stakeNumber].userRewardPerSharePaid = rewardPerShareStored;
     }
 
     function stake(uint256 _amount, uint256 _stakeDays, address _referrer) external payable nonReentrant whenNotPaused {
-        require(userStakingInfo[msg.sender].balance == 0, "StakingPool::stakeMore: active stake exists, unstake first");
         require(_amount > 0, "StakingPool::stake: amount = 0");
         require(_stakeDays > 1, "StakingPool::stake: stakeDays <= 1");
         require(_stakeDays <= 1000, "StakingPool::stake: stakeDays > 1000");
         require(msg.value == stakingFee, "StakingPool::stake: incorrect fee amount");
-
-        _updateReward(msg.sender);
 
         // burn fee
         uint256 _burnFee = (stakingFee * STAKING_BURN_PERCENT) / PERCENT_BASIS;
@@ -214,20 +204,30 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _burnFee -= _referrerFee;
             referrals[_referrer].push(msg.sender);
         }
-        _burnPls(_burnFee);
+        // _burnPls(_burnFee);
 
-        userStakingInfo[msg.sender].balance = _amount;
-        userStakingInfo[msg.sender].shares = calcShares(_amount, _stakeDays, getUserBoostPercent(msg.sender));
-        userStakingInfo[msg.sender].startDay = uint16(getCurrentDay());
-        userStakingInfo[msg.sender].stakeDays = uint16(_stakeDays);
+        StakingInfo memory _stakingInfo = StakingInfo({
+            balance: _amount,
+            shares: calcShares(_amount, _stakeDays, getUserBoostPercent(msg.sender)),
+            rewards: 0,
+            userRewardPerSharePaid: rewardPerShare(),
+            startDay: uint16(getCurrentDay()),
+            stakeDays: uint16(_stakeDays)
+        });
 
-        pinuToken.safeTransferFrom(msg.sender, address(this), _amount);
+        userStakingInfo[msg.sender].push(_stakingInfo);
+
+        uint256 _stakeNumber = userStakingInfo[msg.sender].length - 1;
+
+        _updateReward(msg.sender, _stakeNumber);
 
         totalStaked += _amount;
-        totalShares += userStakingInfo[msg.sender].shares;
+        totalShares += userStakingInfo[msg.sender][_stakeNumber].shares;
+
         currentReward = (stakingFee * STAKING_REWARDS_PERCENT) / PERCENT_BASIS;
         totalReward += currentReward;
 
+        pinuToken.safeTransferFrom(msg.sender, address(this), _amount);
         emit Staked(msg.sender, _amount);
     }
 
@@ -235,44 +235,46 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return (amount * PLS_TO_PINU_RATE * PINU_UNIT) / 1e18;
     }
 
-    function unstake() external nonReentrant {
+    function unstake(uint256 _stakeNumber) external nonReentrant {
         address _user = msg.sender;
-        _updateReward(_user);
-        currentReward = 0;
 
-        uint256 userBalance = userStakingInfo[_user].balance;
-        require(userBalance > 0, "StakingPool::unstake: no active stake");
+        require(_stakeNumber < userStakingInfo[_user].length, "StakingPool::unstake: invalid stake number");
         require(
-            getCurrentDay() > userStakingInfo[_user].startDay + userStakingInfo[_user].stakeDays,
+            getCurrentDay() >
+                userStakingInfo[_user][_stakeNumber].startDay + userStakingInfo[_user][_stakeNumber].stakeDays,
             "StakingPool::unstake: stake not matured"
         );
+
+        _updateReward(_user, _stakeNumber);
+        currentReward = 0;
+
+        uint256 userBalance = userStakingInfo[_user][_stakeNumber].balance;
+
         // claim rewards first
-        uint256 reward = rewards[_user];
+        uint256 reward = userStakingInfo[_user][_stakeNumber].rewards;
         if (reward > 0) {
-            rewards[_user] = 0;
             _safeTranferFunds(_user, reward);
-            totalRewardPaid += reward;
             emit RewardPaid(_user, reward);
         }
 
         // recalculate the share rate
         uint256 _totalPinu = userBalance + _convertPlsToPinu(reward);
-        uint256 _newShareRate = (_totalPinu + _bonus(_totalPinu, userStakingInfo[_user].stakeDays)) /
-            userStakingInfo[_user].shares;
+        uint256 _newShareRate = (_totalPinu + _bonus(_totalPinu, userStakingInfo[_user][_stakeNumber].stakeDays)) /
+            userStakingInfo[_user][_stakeNumber].shares;
         if (_newShareRate > currentShareRate) {
             currentShareRate = _newShareRate;
         }
 
         // remove the staking info
-        totalShares -= userStakingInfo[_user].shares;
+        totalShares -= userStakingInfo[_user][_stakeNumber].shares;
         totalStaked -= userBalance;
 
-        userStakingInfo[_user].rewards = reward;
-        userStakingHistory[_user].push(userStakingInfo[_user]);
-        delete userStakingInfo[_user];
+        // remove the staking info from array
+        userStakingInfo[_user][_stakeNumber] = userStakingInfo[_user][userStakingInfo[_user].length - 1];
+        userStakingInfo[_user].pop();
 
         pinuToken.safeTransfer(_user, userBalance);
-        emit Unstaked(_user, userBalance);
+        emit Unstaked(_user, _stakeNumber, userBalance);
     }
 
     function _safeTranferFunds(address to, uint256 amount) private {
@@ -300,23 +302,32 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     function _updateShares(address user, uint256 tokenId, bool _sign) private {
         // update reward first
-        _updateReward(user);
+        _updateReward(user, 0);
         currentReward = 0;
+        for (uint256 i = 1; i < userStakingInfo[user].length; i++) {
+            _updateReward(user, i);
+        }
 
-        uint256 userBoostPercent = getUserBoostPercent(user);
-        uint256 tokenBoostPercent = _getBoostPercent(tokenId);
-        uint256 newUserBoostPercent = (
-            _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
-        );
-        uint256 newShares = calcShares(
-            userStakingInfo[user].balance,
-            userStakingInfo[user].stakeDays,
-            newUserBoostPercent
-        );
+        uint256 userBoostPercent;
+        uint256 tokenBoostPercent;
+        uint256 newUserBoostPercent;
+        uint256 newShares;
+        for (uint256 i = 0; i < userStakingInfo[user].length; i++) {
+            userBoostPercent = getUserBoostPercent(user);
+            tokenBoostPercent = _getBoostPercent(tokenId);
+            newUserBoostPercent = (
+                _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
+            );
+            newShares = calcShares(
+                userStakingInfo[user][i].balance,
+                userStakingInfo[user][i].stakeDays,
+                newUserBoostPercent
+            );
 
-        // update total shares and the user shares
-        totalShares = totalShares - userStakingInfo[user].shares + newShares;
-        userStakingInfo[user].shares = newShares;
+            // update total shares and the user shares
+            totalShares = totalShares - userStakingInfo[user][i].shares + newShares;
+            userStakingInfo[user][i].shares = newShares;
+        }
     }
 
     function updateBoostNftBonusShares(
@@ -324,11 +335,11 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         address tokenReceiver,
         uint256 tokenId
     ) external nonReentrant onlyRole(STAKING_MODIFY_ROLE) {
-        if (userStakingInfo[tokenSender].shares > 0) {
+        if (userStakingInfo[tokenSender].length > 0) {
             // reduce the shares of the user
             _updateShares(tokenSender, tokenId, false);
         }
-        if (userStakingInfo[tokenReceiver].shares > 0) {
+        if (userStakingInfo[tokenReceiver].length > 0) {
             // increase the shares of the user
             _updateShares(tokenReceiver, tokenId, true);
         }
