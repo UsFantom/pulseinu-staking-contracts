@@ -1,9 +1,6 @@
 # PulseInu Staking Contracts
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/yourusername/PulseInu-staking-contracts/CI/main)
-![GitHub issues](https://img.shields.io/github/issues/yourusername/PulseInu-staking-contracts)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/yourusername/PulseInu-staking-contracts)
 
 Welcome to the PulseInu Staking Contracts repository. This repository contains the smart contracts for the PulseInu staking platform, which enables users to stake tokens and earn rewards.
 
@@ -34,8 +31,8 @@ Before you begin, make sure you have the following software installed:
 1. Clone the repository to your local machine:
 
    ```bash
-   git clone https://github.com/yourusername/PulseInu-staking-contracts.git
-   cd PulseInu-staking-contracts
+   git clone https://github.com/ricknightcrypto/Pulse-Inu-staking-contracts
+   cd Pulse-Inu-staking-contracts
    ```
 
 2. Install the project dependencies:
@@ -56,20 +53,25 @@ To compile and deploy the PulseInu staking contracts, follow these steps:
    yarn compile
    ```
 
-3. Deploy the contracts to the Ethereum network:
+3. Deploy the staking contracts to the Pulse chain testnet v4 network:
 
    ```bash
-   yarn deploy
+   yarn hardhat deploy --network pulseTest --tags StakingPool
+   ```
+4. Verify the contracts to the Pulse chain testnet v4 network:
+
+   ```bash
+   yarn hardhat etherscan-verify --network pulseTest
    ```
 
-4. Interact with the deployed contracts using the provided JavaScript/TypeScript APIs.
+5. Interact with the deployed contracts using the provided JavaScript/TypeScript APIs.
 
 ### Testing
 
 You can run tests for the PulseInu staking contracts by executing the following command:
 
 ```bash
-yarn test
+yarn test:staking-pool
 ```
 
 ### Contributing
@@ -103,4 +105,3 @@ If you would like to contribute to this project, please follow these steps:
 ### License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-```
