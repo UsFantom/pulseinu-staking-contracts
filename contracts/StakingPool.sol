@@ -130,7 +130,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         return referrals[_user];
     }
 
-    function getUserStakeHistory(address _user) external view returns (StakingInfo[] memory) {
+    function getUserStakes(address _user) external view returns (StakingInfo[] memory) {
         return userStakingInfo[_user];
     }
 

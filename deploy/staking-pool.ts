@@ -23,7 +23,7 @@ const deploy: DeployFunction = async hre => {
   const signer = boostNftFactory.signer;
 
   // stakingFee is the amount of PLS
-  const stakingFee = ethers.utils.parseEther("100000");
+  const stakingFee = ethers.utils.parseEther("1000");
   // shareRate is 1.5
   const shareRate = 15000;
   const result = await deploy("StakingPool", {
