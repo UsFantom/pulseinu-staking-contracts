@@ -58,6 +58,7 @@ To compile and deploy the PulseInu staking contracts, follow these steps:
    ```bash
    yarn hardhat deploy --network pulseTest --tags StakingPool
    ```
+
 4. Verify the contracts to the Pulse chain testnet v4 network:
 
    ```bash
@@ -68,11 +69,19 @@ To compile and deploy the PulseInu staking contracts, follow these steps:
 
 ### Testing
 
-You can run tests for the PulseInu staking contracts by executing the following command:
+1. Test the staking contract using the hardhat network settings:
 
-```bash
-yarn test:staking-pool
-```
+   You should comment the line 207 of the file `contracts/StakingPool.sol` before testing. Since the hardhat chain doesn't have the PulseXRouter02 contract.
+
+   ```bash
+   yarn test:staking-pool
+   ```
+
+2. Test the staking contract using the pulseTest network settings:
+
+   ```bash
+   yarn test:staking-pool:pulseTest
+   ```
 
 ### Contributing
 
