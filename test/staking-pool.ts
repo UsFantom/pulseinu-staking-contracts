@@ -11,17 +11,19 @@ describe("StakingPool", () => {
   /* test all possible cases */
 
   it("should allow users to stake tokens", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
     const user1Address = await user1.getAddress();
-    const initialSupply = await mockToken.balanceOf(user0Address);
+    const initialSupply = await pinuToken.balanceOf(user0Address);
+    console.log("user0 address", user0Address);
+    console.log("initialSupply", initialSupply.toString());
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(10));
 
@@ -34,17 +36,17 @@ describe("StakingPool", () => {
   });
 
   it("should allow users to stake tokens with referrer", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
     const user1Address = await user1.getAddress();
-    const initialSupply = await mockToken.balanceOf(user0Address);
+    const initialSupply = await pinuToken.balanceOf(user0Address);
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(10));
 
@@ -67,7 +69,7 @@ describe("StakingPool", () => {
   });
 
   it("should not allow staking zero tokens", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -80,7 +82,7 @@ describe("StakingPool", () => {
   });
 
   it("should not allow staking with stake period less than or equal to zero", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -88,8 +90,8 @@ describe("StakingPool", () => {
 
     // verify that the user1 can't stake with stake period less than or equal to zero
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await expect(stakingPool.connect(user1).stake(stakeAmount, 0, ethers.constants.AddressZero, { value: stakingFee })).to.be.revertedWith(
       "StakingPool::stake: stakeDays <= 1",
@@ -97,7 +99,7 @@ describe("StakingPool", () => {
   });
 
   it("should receive staked tokens into the contract", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -105,8 +107,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -117,12 +119,12 @@ describe("StakingPool", () => {
     const totalStaked = await stakingPool.totalStaked();
     expect(totalStaked).to.equal(stakeAmount);
 
-    const user1Balance = await mockToken.balanceOf(user1Address);
+    const user1Balance = await pinuToken.balanceOf(user1Address);
     expect(user1Balance).to.equal(0);
   });
 
   it("should not allow unstaking before the minimum stake period", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -130,8 +132,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -145,7 +147,7 @@ describe("StakingPool", () => {
   });
 
   it("should transfer unstaked tokens back to the user", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -153,8 +155,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -165,14 +167,14 @@ describe("StakingPool", () => {
     const threeDays = 60 * 60 * 24 * 3;
     await time.increase(threeDays + 1000);
 
-    const user1Balance = await mockToken.balanceOf(user1Address);
+    const user1Balance = await pinuToken.balanceOf(user1Address);
     await stakingPool.connect(user1).unstake(0);
-    const user1BalanceAfter = await mockToken.balanceOf(user1Address);
+    const user1BalanceAfter = await pinuToken.balanceOf(user1Address);
     expect(user1BalanceAfter).to.equal(user1Balance.add(stakeAmount));
   });
 
   it("should get whole reward the user1 stake alone", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -180,8 +182,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount = ethers.utils.parseEther("100");
-    await mockToken.connect(user0).transfer(user1Address, stakeAmount);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount);
+    await pinuToken.connect(user0).transfer(user1Address, stakeAmount);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -200,7 +202,7 @@ describe("StakingPool", () => {
   });
 
   it("should only allow the contract owner to pause/unpause the contract", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -213,7 +215,7 @@ describe("StakingPool", () => {
   });
 
   it("should handle scenarios with no staked tokens and attempted unstaking", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
 
@@ -221,7 +223,7 @@ describe("StakingPool", () => {
   });
 
   it("should handle division by zero gracefully in reward calculation functions", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const user0 = ethers.provider.getSigner(0);
     const user0Address = await user0.getAddress();
 
@@ -231,7 +233,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly among 2 users", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -241,8 +243,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -252,8 +254,8 @@ describe("StakingPool", () => {
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
 
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
@@ -288,7 +290,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly unstake lately", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -298,8 +300,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -309,8 +311,8 @@ describe("StakingPool", () => {
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
 
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
@@ -343,7 +345,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly among 3 users", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -355,8 +357,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -366,16 +368,16 @@ describe("StakingPool", () => {
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
 
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
     // Verify that the user3 stake
     const stakeAmount3 = ethers.utils.parseEther("300");
-    await mockToken.connect(owner).transfer(user3Address, stakeAmount3);
-    await mockToken.connect(user3).approve(stakingPool.address, stakeAmount3);
+    await pinuToken.connect(owner).transfer(user3Address, stakeAmount3);
+    await pinuToken.connect(user3).approve(stakingPool.address, stakeAmount3);
 
     tx = await stakingPool.connect(user3).stake(stakeAmount3, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
@@ -422,7 +424,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly staking with a legendary boost nft", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt, boostNft } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt, boostNft } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -432,14 +434,14 @@ describe("StakingPool", () => {
 
     // user1 mint a boost nft
     const legendaryPrice = await boostNft.tokenTypePrice(0);
-    await mockToken.connect(owner).transfer(user1Address, legendaryPrice);
-    await mockToken.connect(user1).approve(boostNft.address, legendaryPrice);
+    await pinuToken.connect(owner).transfer(user1Address, legendaryPrice);
+    await pinuToken.connect(user1).approve(boostNft.address, legendaryPrice);
     await boostNft.connect(user1).mint(0);
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -449,8 +451,8 @@ describe("StakingPool", () => {
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
 
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
@@ -488,7 +490,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly after minting a legendary boost nft", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt, boostNft } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt, boostNft } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -498,8 +500,8 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
 
     await time.setNextBlockTimestamp(startsAt.add(100));
 
@@ -511,14 +513,14 @@ describe("StakingPool", () => {
 
     // user1 mint a boost nft
     const legendaryPrice = await boostNft.tokenTypePrice(0);
-    await mockToken.connect(owner).transfer(user1Address, legendaryPrice);
-    await mockToken.connect(user1).approve(boostNft.address, legendaryPrice);
+    await pinuToken.connect(owner).transfer(user1Address, legendaryPrice);
+    await pinuToken.connect(user1).approve(boostNft.address, legendaryPrice);
     await boostNft.connect(user1).mint(0);
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
 
     tx = await stakingPool
       .connect(user2)
@@ -559,7 +561,7 @@ describe("StakingPool", () => {
   });
 
   it("should distribute rewards correctly among 2 users for multiple stakes", async function () {
-    const { mockToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
+    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
     const owner = ethers.provider.getSigner(0);
     const ownerAddress = await owner.getAddress();
     const user1 = ethers.provider.getSigner(1);
@@ -573,27 +575,27 @@ describe("StakingPool", () => {
 
     // Verify that the user1 stake
     const stakeAmount1 = ethers.utils.parseEther("100");
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
     let tx = await stakingPool.connect(user1).stake(stakeAmount1, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
     // Verify that the user2 stake
     const stakeAmount2 = ethers.utils.parseEther("200");
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
     // Verify that the user1 stake again
-    await mockToken.connect(owner).transfer(user1Address, stakeAmount1);
-    await mockToken.connect(user1).approve(stakingPool.address, stakeAmount1);
+    await pinuToken.connect(owner).transfer(user1Address, stakeAmount1);
+    await pinuToken.connect(user1).approve(stakingPool.address, stakeAmount1);
     tx = await stakingPool.connect(user1).stake(stakeAmount1, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
     // Verify that the user2 stake again
-    await mockToken.connect(owner).transfer(user2Address, stakeAmount2);
-    await mockToken.connect(user2).approve(stakingPool.address, stakeAmount2);
+    await pinuToken.connect(owner).transfer(user2Address, stakeAmount2);
+    await pinuToken.connect(user2).approve(stakingPool.address, stakeAmount2);
     tx = await stakingPool.connect(user2).stake(stakeAmount2, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 

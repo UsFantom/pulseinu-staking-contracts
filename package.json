@@ -86,6 +86,7 @@
     "test:pulseinu": "hardhat test  ./test/pulseinu.ts",
     "test:token-burner": "hardhat test  ./test/token-burner.ts",
     "test:staking-pool": "hardhat test  ./test/staking-pool.ts",
+    "test:staking-pool:pulseTest": "hardhat test --config hardhat.config.pulseTest.ts ./test/staking-pool.ts",
     "test:deployer": "hardhat test  ./test/deployer.ts",
     "typechain": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain",
     "toolbox": "sudo docker run -it --rm -v $PWD:/share eth-security-toolbox",
