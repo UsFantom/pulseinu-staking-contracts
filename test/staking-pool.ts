@@ -198,7 +198,7 @@ describe("StakingPool", () => {
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
     let expected1 = ethers.utils.parseEther("0.7"); // 0.7 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
   });
 
   it("should only allow the contract owner to pause/unpause the contract", async function () {
@@ -277,7 +277,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("0.933333333333333333"); // 0.933333333333333333 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
 
     // Check user2 rewards
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -286,7 +286,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("0.466666666666666666"); // 0.466666666666666666 PLS
     expect(expected2).to.approximately(rewards2, 1e4);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
   });
 
   it("should distribute rewards correctly unstake lately", async function () {
@@ -328,7 +328,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("0.466666666666666666"); // 0.466666666666666666 PLS
     expect(expected2).to.approximately(rewards2, 1e4);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
 
     // Check user1 rewards later
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -341,7 +341,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("0.933333333333333333"); // 0.933333333333333333 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
   });
 
   it("should distribute rewards correctly among 3 users", async function () {
@@ -399,7 +399,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("1.05"); // 1.05 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
 
     // Check user2 rewards
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -411,7 +411,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("0.7"); // 0.7 PLS
     expect(expected2).to.approximately(rewards2, 1e4);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
 
     // Check user3 rewards
     const rewards3 = await stakingPool.connect(user3).getUserRewards(user3Address, 0);
@@ -420,7 +420,7 @@ describe("StakingPool", () => {
     */
     let expected3 = ethers.utils.parseEther("0.35"); // 0.35 PLS
     expect(expected3).to.approximately(rewards3, 1e4);
-    expect(stakingPool.connect(user3).unstake(0)).to.changeEtherBalance(user3, rewards3);
+    await expect(stakingPool.connect(user3).unstake(0)).to.changeEtherBalance(user3, rewards3);
   });
 
   it("should distribute rewards correctly staking with a legendary boost nft", async function () {
@@ -477,7 +477,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("0.97573673870334"); // 0.97573673870334 PLS
     expect(expected1).to.approximately(rewards1, 1e6);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
 
     // Check user2 rewards
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -486,7 +486,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("0.42426326129666"); // 0.42426326129666 PLS
     expect(expected2).to.approximately(rewards2, 1e6);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
   });
 
   it("should distribute rewards correctly after minting a legendary boost nft", async function () {
@@ -548,7 +548,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("0.97573673870334"); // 0.97573673870334 PLS
     expect(expected1).to.approximately(rewards1, 1e6);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
 
     // Check user2 rewards
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -557,7 +557,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("0.42426326129666"); // 0.42426326129666 PLS
     expect(expected2).to.approximately(rewards2, 1e6);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
   });
 
   it("should distribute rewards correctly among 2 users for multiple stakes", async function () {
@@ -629,7 +629,7 @@ describe("StakingPool", () => {
     */
     let expected1 = ethers.utils.parseEther("1.225"); // 1.225 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
-    expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
 
     // Check user2 first stake rewards
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -652,7 +652,7 @@ describe("StakingPool", () => {
     */
     let expected2 = ethers.utils.parseEther("1.05"); // 1.05 PLS
     expect(expected2).to.approximately(rewards2, 1e4);
-    expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards2);
 
     // Check user1 second stake rewards (The first stake has been removed already, since it's unstaked already)
     const rewards3 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -674,7 +674,7 @@ describe("StakingPool", () => {
     */
     let expected3 = ethers.utils.parseEther("0.291666666666666"); // 0.291666666666666 PLS
     expect(expected3).to.approximately(rewards3, 1e4);
-    expect(stakingPool.connect(user1).unstake(1)).to.changeEtherBalance(user1, rewards3);
+    await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards3);
 
     // Check user2 second stake rewards (The first stake has been removed already, since it's unstaked already) 
     const rewards4 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -690,6 +690,6 @@ describe("StakingPool", () => {
     */
     let expected4 = ethers.utils.parseEther("0.233333333333333"); // 0.233333333333333 PLS
     expect(expected4).to.approximately(rewards4, 1e4);
-    expect(stakingPool.connect(user2).unstake(1)).to.changeEtherBalance(user2, rewards4);
+    await expect(stakingPool.connect(user2).unstake(0)).to.changeEtherBalance(user2, rewards4);
   });
 });
