@@ -164,8 +164,8 @@ describe("StakingPool", () => {
     let tx = await stakingPool.connect(user1).stake(stakeAmount, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1000);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1000);
 
     const user1Balance = await pinuToken.balanceOf(user1Address);
     await stakingPool.connect(user1).unstake(0);
@@ -191,27 +191,14 @@ describe("StakingPool", () => {
     let tx = await stakingPool.connect(user1).stake(stakeAmount, stakeDays, ethers.constants.AddressZero, { value: stakingFee });
     await tx.wait();
 
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
     let expected1 = ethers.utils.parseEther("0.7"); // 0.7 PLS
     expect(expected1).to.approximately(rewards1, 1e4);
     await expect(stakingPool.connect(user1).unstake(0)).to.changeEtherBalance(user1, rewards1);
-  });
-
-  it("should only allow the contract owner to pause/unpause the contract", async function () {
-    const { pinuToken, stakingPool, stakingFee, startsAt } = await loadFixture(setupStakingPool);
-    const owner = ethers.provider.getSigner(0);
-    const ownerAddress = await owner.getAddress();
-    const user1 = ethers.provider.getSigner(1);
-    const user1Address = await user1.getAddress();
-
-    // not owner should be reverted
-    await expect(stakingPool.connect(user1).setPause()).to.be.reverted;
-    // owner should succeed to pause
-    await expect(stakingPool.connect(owner).setPause()).to.not.be.reverted;
   });
 
   it("should handle scenarios with no staked tokens and attempted unstaking", async function () {
@@ -261,8 +248,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -318,8 +305,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user2 rewards first
     const rewards2 = await stakingPool.connect(user2).getUserRewards(user2Address, 0);
@@ -383,8 +370,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -458,8 +445,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -528,8 +515,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);
@@ -600,8 +587,8 @@ describe("StakingPool", () => {
     await tx.wait();
 
     // increase time 3 days
-    const threeDays = 60 * 60 * 24 * 3;
-    await time.increase(threeDays + 1);
+    const twoDays = 60 * 60 * 24 * 2;
+    await time.increase(twoDays + 1);
 
     // Check user1 first stake rewards
     const rewards1 = await stakingPool.connect(user1).getUserRewards(user1Address, 0);

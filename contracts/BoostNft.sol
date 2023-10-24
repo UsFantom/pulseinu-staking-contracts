@@ -16,8 +16,6 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
     using Strings for uint256;
     using SafeERC20 for IERC20;
 
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant MAX_ART_COUNT = 1500;
 
@@ -27,6 +25,8 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
     mapping(TokenType => uint256) public tokenTypePrice;
     mapping(TokenType => uint256) public tokenTypeSupply;
     mapping(uint256 => TokenType) public override tokenIdToType;
+
+    mapping(address => mapping(TokenType => uint256)) public balancesOfTokenType;
 
     // Base URI for each token
     string public baseURI;
@@ -71,6 +71,7 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
         _mint(msg.sender, tokenId);
         tokenIdToType[tokenId] = _tokenType;
         tokenTypeSupply[_tokenType]++;
+        balancesOfTokenType[msg.sender][_tokenType]++;
 
         emit TokenMinted(msg.sender, tokenId, _tokenType);
     }
@@ -85,14 +86,14 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
         if (stakingPoolAddress != address(0)) {
             IStakingPool(stakingPoolAddress).updateBoostNftBonusShares(from, to, firstTokenId);
         }
+
+        if (from != address(0)) {
+            balancesOfTokenType[from][tokenIdToType[firstTokenId]] -= batchSize;
+            balancesOfTokenType[to][tokenIdToType[firstTokenId]] += batchSize;
+        }
     }
 
     /** Roles */
-
-    function burn(uint256 tokenId) external onlyRole(BURNER_ROLE) {
-        _burn(tokenId);
-        tokenTypeSupply[tokenIdToType[tokenId]]--;
-    }
 
     function setStakingPool(address _stakingPoolAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         stakingPoolAddress = _stakingPoolAddress;
@@ -133,5 +134,9 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
         _requireMinted(tokenId);
 
         return string(abi.encodePacked(baseURI, (tokenId % MAX_ART_COUNT).toString(), ".json"));
+    }
+
+    function getBalancesByTokenType(address _address) external view override returns (uint256, uint256) {
+        return (balancesOfTokenType[_address][TokenType.Legendary], balancesOfTokenType[_address][TokenType.Collector]);
     }
 }

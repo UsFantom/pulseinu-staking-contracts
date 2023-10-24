@@ -2,7 +2,6 @@
 pragma solidity 0.8.18;
 
 import { AccessControlEnumerable } from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721Enumerable } from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
@@ -12,7 +11,7 @@ import { IPulseXRouter02 } from "./interface/IPulseXRouter02.sol";
 import { IStakingPool } from "./interface/IStakingPool.sol";
 import { IBoostNft } from "./interface/IBoostNft.sol";
 
-contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, Pausable {
+contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
     using SafeERC20 for IERC20;
 
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -27,6 +26,8 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
     uint256 public constant STAKING_REWARDS_PERCENT = 7000; // 70 %
     uint256 public constant STAKING_BURN_PERCENT = 3000; // 30 %
     uint256 public constant STAKING_REFERRER_PERCENT = 2000; // 20 %
+    uint256 public constant MAX_STAKING_DAYS = 1000; // 1000 days
+    uint256 public constant MAX_STAKING_COUNT = 10; // 10 stakes
 
     uint256 public constant LEGENDARY_BOOST_PERCENT = 3000; // 30 %
     uint256 public constant COLLECTOR_BOOST_PERCENT = 500; // 5 %
@@ -168,20 +169,15 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         _swapPlsToPinu(amount);
         uint256 newPinuBalance = pinuToken.balanceOf(address(this));
         uint256 pinuSwapped = newPinuBalance - initialPinuBalance;
-        pinuToken.transfer(BURN_ADDRESS, pinuSwapped);
+        pinuToken.safeTransfer(BURN_ADDRESS, pinuSwapped);
     }
 
     function getUserBoostPercent(address _user) public view returns (uint256) {
-        uint256 nftBalance = IERC721Enumerable(boostNft).balanceOf(_user);
-        if (nftBalance > 0) {
-            uint256 boostPercent = 0;
-            for (uint256 i = 0; i < nftBalance; i++) {
-                uint256 tokenId = IERC721Enumerable(boostNft).tokenOfOwnerByIndex(_user, i);
-                boostPercent += _getBoostPercent(tokenId);
-            }
-            return boostPercent;
-        }
-        return 0;
+        (uint256 legendaryBalance, uint256 collectorBalance) = IBoostNft(boostNft).getBalancesByTokenType(_user);
+
+        uint256 boostPercent = LEGENDARY_BOOST_PERCENT * legendaryBalance + COLLECTOR_BOOST_PERCENT * collectorBalance;
+
+        return boostPercent;
     }
 
     function _updateReward(address _user, uint256 _stakeNumber) private {
@@ -190,11 +186,13 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
         userStakingInfo[_user][_stakeNumber].userRewardPerSharePaid = rewardPerShareStored;
     }
 
-    function stake(uint256 _amount, uint256 _stakeDays, address _referrer) external payable nonReentrant whenNotPaused {
+    function stake(uint256 _amount, uint256 _stakeDays, address _referrer) external payable nonReentrant {
         require(_amount > 0, "StakingPool::stake: amount = 0");
         require(_stakeDays > 1, "StakingPool::stake: stakeDays <= 1");
-        require(_stakeDays <= 1000, "StakingPool::stake: stakeDays > 1000");
+        require(_stakeDays <= MAX_STAKING_DAYS, "StakingPool::stake: stakeDays > MAX_STAKING_DAYS");
         require(msg.value == stakingFee, "StakingPool::stake: incorrect fee amount");
+        require(msg.sender != _referrer, "StakingPool::stake: caller is referrer");
+        require(userStakingInfo[msg.sender].length < MAX_STAKING_COUNT, "StakingPool::stake: max stakes reached");
 
         // burn fee
         uint256 _burnFee = (stakingFee * STAKING_BURN_PERCENT) / PERCENT_BASIS;
@@ -240,7 +238,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
         require(_stakeNumber < userStakingInfo[_user].length, "StakingPool::unstake: invalid stake number");
         require(
-            getCurrentDay() >
+            getCurrentDay() >=
                 userStakingInfo[_user][_stakeNumber].startDay + userStakingInfo[_user][_stakeNumber].stakeDays,
             "StakingPool::unstake: stake not matured"
         );
@@ -284,15 +282,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function setPause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (paused()) {
-            _unpause();
-        } else {
-            _pause();
-        }
-    }
-
-    function _getBoostPercent(uint256 tokenId) private view returns (uint256) {
+    function _getTokenBoostPercent(uint256 tokenId) private view returns (uint256) {
         if (IBoostNft(boostNft).tokenIdToType(tokenId) == IBoostNft.TokenType.Legendary) {
             return LEGENDARY_BOOST_PERCENT;
         } else {
@@ -308,13 +298,11 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable, 
             _updateReward(user, i);
         }
 
-        uint256 userBoostPercent;
-        uint256 tokenBoostPercent;
+        uint256 userBoostPercent = getUserBoostPercent(user);
+        uint256 tokenBoostPercent = _getTokenBoostPercent(tokenId);
         uint256 newUserBoostPercent;
         uint256 newShares;
         for (uint256 i = 0; i < userStakingInfo[user].length; i++) {
-            userBoostPercent = getUserBoostPercent(user);
-            tokenBoostPercent = _getBoostPercent(tokenId);
             newUserBoostPercent = (
                 _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
             );

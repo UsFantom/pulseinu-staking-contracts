@@ -8,4 +8,6 @@ interface IBoostNft {
     }
 
     function tokenIdToType(uint256 tokenId) external view returns (TokenType);
+
+    function getBalancesByTokenType(address _address) external view returns (uint256, uint256);
 }
