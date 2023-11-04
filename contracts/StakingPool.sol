@@ -117,14 +117,14 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
     }
 
     /**
-     * Calculates how much rewards a user has earned up to current block, every time the user stakes/unstakes/withdraw.
-     * We update "rewards[_user]" with how much they are entitled to, up to current block.
-     * Next time we calculate how much they earned since last update and accumulate on rewards[_user].
+     * Calculates how much reward a user's stake has earned up to current block, every time the user stakes/unstakes/withdraw.
+     * We update rewardAccumulated with how much they are entitled to, up to current block.
+     * Next time we calculate how much they earned since last update and accumulate on rewardAccumulated.
      */
     function getUserRewards(address _user, uint256 _stakeNumber) public view returns (uint256) {
         uint256 rewardsSinceLastUpdate = ((userStakingInfo[_user][_stakeNumber].shares *
             (rewardPerShare() - userStakingInfo[_user][_stakeNumber].userRewardPerSharePaid)) / 1e18);
-        return rewardsSinceLastUpdate + userStakingInfo[_user][_stakeNumber].rewards;
+        return rewardsSinceLastUpdate + userStakingInfo[_user][_stakeNumber].rewardAccumulated;
     }
 
     function getUserReferrals(address _user) external view returns (address[] memory) {
@@ -181,7 +181,7 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
     }
 
     function _updateReward(address _user, uint256 _stakeNumber) private {
-        userStakingInfo[_user][_stakeNumber].rewards = getUserRewards(_user, _stakeNumber);
+        userStakingInfo[_user][_stakeNumber].rewardAccumulated = getUserRewards(_user, _stakeNumber);
         rewardPerShareStored = rewardPerShare();
         userStakingInfo[_user][_stakeNumber].userRewardPerSharePaid = rewardPerShareStored;
     }
@@ -207,10 +207,10 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
         StakingInfo memory _stakingInfo = StakingInfo({
             balance: _amount,
             shares: calcShares(_amount, _stakeDays, getUserBoostPercent(msg.sender)),
-            rewards: 0,
+            rewardAccumulated: 0,
             userRewardPerSharePaid: rewardPerShare(),
-            startDay: uint16(getCurrentDay()),
-            stakeDays: uint16(_stakeDays)
+            startDay: uint128(getCurrentDay()),
+            stakeDays: uint128(_stakeDays)
         });
 
         userStakingInfo[msg.sender].push(_stakingInfo);
@@ -248,8 +248,8 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
 
         uint256 userBalance = userStakingInfo[_user][_stakeNumber].balance;
 
-        // claim rewards first
-        uint256 reward = userStakingInfo[_user][_stakeNumber].rewards;
+        // claim reward first
+        uint256 reward = userStakingInfo[_user][_stakeNumber].rewardAccumulated;
         if (reward > 0) {
             _safeTranferFunds(_user, reward);
             emit RewardPaid(_user, reward);
@@ -302,10 +302,10 @@ contract StakingPool is ReentrancyGuard, IStakingPool, AccessControlEnumerable {
         uint256 tokenBoostPercent = _getTokenBoostPercent(tokenId);
         uint256 newUserBoostPercent;
         uint256 newShares;
+        newUserBoostPercent = (
+            _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
+        );
         for (uint256 i = 0; i < userStakingInfo[user].length; i++) {
-            newUserBoostPercent = (
-                _sign == true ? userBoostPercent + tokenBoostPercent : userBoostPercent - tokenBoostPercent
-            );
             newShares = calcShares(
                 userStakingInfo[user][i].balance,
                 userStakingInfo[user][i].stakeDays,
