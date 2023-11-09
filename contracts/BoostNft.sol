@@ -17,7 +17,7 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
     using SafeERC20 for IERC20;
 
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    uint256 public constant MAX_ART_COUNT = 1500;
+    uint256 public constant MAX_ART_COUNT = 10000;
 
     address public pulseInuTokenAddress;
     address public stakingPoolAddress;
@@ -67,7 +67,9 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
      */
     function mint(TokenType _tokenType) external {
         IERC20(pulseInuTokenAddress).safeTransferFrom(msg.sender, BURN_ADDRESS, tokenTypePrice[_tokenType]);
-        uint256 tokenId = totalSupply();
+
+        // tokenId starts from 1
+        uint256 tokenId = totalSupply() + 1;
         _mint(msg.sender, tokenId);
         tokenIdToType[tokenId] = _tokenType;
         tokenTypeSupply[_tokenType]++;
@@ -133,7 +135,7 @@ contract BoostNft is IBoostNft, ERC721Enumerable, AccessControlEnumerable {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireMinted(tokenId);
 
-        return string(abi.encodePacked(baseURI, (tokenId % MAX_ART_COUNT).toString(), ".json"));
+        return string(abi.encodePacked(baseURI, (((tokenId - 1) % MAX_ART_COUNT) + 1).toString(), ".json"));
     }
 
     function getBalancesByTokenType(address _address) external view override returns (uint256, uint256) {
